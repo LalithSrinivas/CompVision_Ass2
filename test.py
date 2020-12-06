@@ -3,46 +3,53 @@ import numpy as np
 import matplotlib.pyplot as plt
 from random import randrange
 
-file = "1"
-img_ = cv2.imread('val_set/'+file+'/'+file+'b.png')
-img1 = cv2.cvtColor(img_,cv2.COLOR_BGR2GRAY)
-img = cv2.imread('val_set/'+file+'/'+file+'a.png')
-img2 = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+files = ['1', '2', '3', '4']
+for file in files:
+    img_ = cv2.imread('val_set/'+file+'/'+file+'b.png')
+    img1 = cv2.cvtColor(img_,cv2.COLOR_BGR2GRAY)
+    img = cv2.imread('val_set/'+file+'/'+file+'a.png')
+    img2 = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
-# images = [img_, img]
-# stitcher = cv2.createStitcher()
-# (status, stitched) = stitcher.stitch(images)
-# cv2.imwrite('val_set/4/output.jpg',stitched)
+    # images = [img_, img]
+    # stitcher = cv2.createStitcher()
+    # (status, stitched) = stitcher.stitch(images)
+    # cv2.imwrite('val_set/4/output.jpg',stitched)
 
-sift = cv2.xfeatures2d.SIFT_create()
-# find the keypoints and descriptors with SIFT
-kp1, des1 = sift.detectAndCompute(img1,None)
-kp2, des2 = sift.detectAndCompute(img2,None)
+    sift = cv2.xfeatures2d.SIFT_create()
+    # find the keypoints and descriptors with SIFT
+    kp1, des1 = sift.detectAndCompute(img1,None)
+    kp2, des2 = sift.detectAndCompute(img2,None)
 
-bf = cv2.BFMatcher()
-matches = bf.knnMatch(des1,des2, k=2)
+    bf = cv2.BFMatcher()
+    matches = bf.knnMatch(des1,des2, k=2)
 
-# Apply ratio test
-good = []
-for m in matches:
-    if m[0].distance < 0.5*m[1].distance:
-        good.append(m)
-matches = np.asarray(good)
+    # Apply ratio test
+    good = []
+    for m in matches:
+        if m[0].distance < 0.5*m[1].distance:
+            good.append(m)
+    matches = np.asarray(good)
 
-if len(matches[:,0]) >= 4:
-    src = np.float32([ kp1[m.queryIdx].pt for m in matches[:,0] ]).reshape(-1,1,2)
-    dst = np.float32([ kp2[m.trainIdx].pt for m in matches[:,0] ]).reshape(-1,1,2)
-    H, masked = cv2.findHomography(src, dst, cv2.RANSAC, 5.0)
-    #print H
-else:
-    raise AssertionError("Can’t find enough keypoints.")
+    if len(matches[:,0]) >= 4:
+        src = np.float32([ kp1[m.queryIdx].pt for m in matches[:,0] ]).reshape(-1,1,2)
+        dst = np.float32([ kp2[m.trainIdx].pt for m in matches[:,0] ]).reshape(-1,1,2)
+        H, masked = cv2.findHomography(src, dst, cv2.RANSAC, 5.0)
+        #print H
+    else:
+        raise AssertionError("Can’t find enough keypoints.")
 
-dst = cv2.warpPerspective(img_,H,(img.shape[1]+img_.shape[1], img.shape[0]+img_.shape[0]))
-plt.subplot(122),plt.imshow(dst),plt.title('Warped Image')
-plt.show()
-plt.figure()
-dst[0:img.shape[0], 0:img.shape[1]] = img
-cv2.imwrite('val_set/'+file+'/output.jpg',dst)
-plt.imshow(dst)
-plt.show()
+    dst = cv2.warpPerspective(img_,H,(img.shape[1]+img_.shape[1], img.shape[0]+img_.shape[0]))
+    # plt.figure()
+    dst[0:img.shape[0], 0:img.shape[1]] = img
+    gray = cv2.cvtColor(dst, cv2.COLOR_BGR2GRAY)
+    # plt.subplot(122),plt.imshow(gray),plt.title('Warped Image')
+    # plt.show()
+    _, thresh = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
+    _, contour, hei = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnt = max(contour, key=cv2.contourArea)
+    x, y, w, h =  cv2.boundingRect(cnt)
+    dst = dst[y:y+h, x:x+w]
+    cv2.imwrite('val_set/'+file+'/output.jpg',dst)
+    # plt.imshow(dst)
+    # plt.show()
 
